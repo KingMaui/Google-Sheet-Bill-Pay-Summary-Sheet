@@ -1,0 +1,80 @@
+function generateSummarySheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const currentInvoiceSheet = ss.getSheetByName("Current Invoice");
+  if (!currentInvoiceSheet) {
+    console.log("Sheet 'Current Invoice' not found.");
+    return;
+  }
+  
+  const currentInvoiceData = currentInvoiceSheet.getDataRange().getValues();
+  const summarySheet = ss.insertSheet("Summary");
+
+  summarySheet.getDataRange().setNumberFormat('@');
+  summarySheet.getDataRange().setHorizontalAlignment("left");
+  
+  const headerRow = ["Vendor", "Invoice Number", "Invoice Date", "Amount", "Description", "Categorization"];
+  summarySheet.appendRow(headerRow);
+  
+  const headerRange = summarySheet.getRange(1, 1, 1, headerRow.length);
+  headerRange.setFontWeight('bold');
+  
+  let categoryGroups = {};
+  
+  for (let i = 0; i < currentInvoiceData.length; i++) {
+    const currentRow = currentInvoiceData[i];
+    const category = currentRow[5];
+    if (currentRow[6] !== "#N/A") {
+      continue;
+    }
+    if (!categoryGroups[category]) {
+      categoryGroups[category] = [];
+    }
+    categoryGroups[category].push([
+      currentRow[0],
+      currentRow[1].toString(),
+      currentRow[2],
+      currentRow[3],
+      currentRow[4],
+      currentRow[5]
+    ]);
+  }
+  
+  const customCategoryOrder = ["Rent", "Utilities", "Office Supplies", "Insurance", "Travel Expenses", "Advertising and Marketing", "Professional Fees","Repairs and Maintenance","Taxes and Licenses","Miscellaneous Expenses"];
+  const sortedCategories = Object.keys(categoryGroups).sort((a, b) => {
+    return customCategoryOrder.indexOf(a) - customCategoryOrder.indexOf(b);
+  });
+  
+  let rowIndex = 2;
+  for (const category of sortedCategories) {
+    let categoryData = categoryGroups[category];
+    categoryData.sort((a, b) => {
+      const vendorComparison = a[0].localeCompare(b[0]);
+      return vendorComparison !== 0 ? vendorComparison : new Date(a[2]) - new Date(b[2]);
+    });
+    
+    let categoryTotal = 0;
+    for (const rowData of categoryData) {
+      summarySheet.appendRow(rowData);
+      categoryTotal += rowData[3];
+    }
+    
+    summarySheet.appendRow([ "", "", "", categoryTotal, category + " Total", ""]);
+    
+    const categoryRange = summarySheet.getRange(rowIndex, 1, categoryData.length, headerRow.length);
+    categoryRange.setFontWeight('normal');
+    const totalRange = summarySheet.getRange(rowIndex + categoryData.length, 1, 1, headerRow.length);
+    totalRange.setFontWeight('bold');
+    
+    rowIndex += categoryData.length + 1;
+  }
+
+  const grandTotal = sortedCategories.reduce((total, category) => {
+    const categoryData = categoryGroups[category];
+    const categoryTotal = categoryData.reduce((subtotal, rowData) => subtotal + rowData[3], 0);
+    return total + categoryTotal;
+  }, 0);
+
+  summarySheet.appendRow([ "", "", "", grandTotal, "Grand Total", ""]);
+  const grandTotalRange = summarySheet.getRange(rowIndex, 1, 1, headerRow.length);
+  grandTotalRange.setFontWeight('bold');
+}
