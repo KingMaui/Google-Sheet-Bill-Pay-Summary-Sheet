@@ -1,0 +1,11 @@
+function onEdit(e) {
+  if (e && e.range) {
+    var range = e.range;
+    if (range.getValue().toLowerCase() === 'paid invoice') {
+      var values = range.getSheet().getRange(range.getRow(), 1, 1, range.getSheet().getLastColumn()).getValues()[0];
+      range.getSheet().getRange(range.getRow(), 1, 1, range.getSheet().getLastColumn()).setNumberFormat('@');
+      var destinationSheet = e.source.getSheetByName('Paid invoice');
+      destinationSheet.appendRow(values);
+    }
+  }
+}
